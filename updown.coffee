@@ -270,6 +270,29 @@ getRGBFromImg = (canvas, p)->
 
 ##==============================================================================
 $ ()->
+    # 説明画面
+    storage = localStorage;
+    helpPhase = storage.getItem "helpPhase"
+
+    helpProgress = (e)->
+        console.log helpPhase
+        if 4 < helpPhase
+            storage.setItem "helpPhase", helpPhase
+            $("#help").hide()
+        else if 0 < helpPhase
+            $img = $ "<img>"
+            $img.attr "src", "./img/help" + helpPhase + ".jpg"
+            $("#help").empty().append $img
+            helpPhase++
+        else
+            $("#js-caution").empty().text "クリックで使い方を説明します。"
+            helpPhase = 1;
+
+    $("#help").on "click", helpProgress
+    helpProgress()
+
+
+
     # マップの初期化
     map = L.map "map"
     $store = $ "#store"
@@ -393,6 +416,10 @@ $ ()->
 
     # 地図上のクリックイベント
     map.on 'click', (e)->
+        if helpPhase < 5
+            helpPhase = 5
+            helpProgress()
+
         m = createMarkerAt e.latlng
         markers.push m
         updatePolyLine()
@@ -522,3 +549,8 @@ $ ()->
             $c.find("input.trueheight").val(data.trueHeight)
             markers.push m
         updatePolyLine()
+
+    $("#showHelp").on "click", (e)->
+        $("#help").show()
+        helpPhase = 1
+        helpProgress()

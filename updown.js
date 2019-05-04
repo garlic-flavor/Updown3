@@ -419,7 +419,28 @@
 
   //#==============================================================================
   $(function() {
-    var $store, clearAll, createMarkerAt, getAllData, getAllHeights, getCoordFromLatLng, getHeightFromLatLng, loadImage, map, markers, polyline, resetDefaultLocation, updatePolyLine, visibleOnMap;
+    var $store, clearAll, createMarkerAt, getAllData, getAllHeights, getCoordFromLatLng, getHeightFromLatLng, helpPhase, helpProgress, loadImage, map, markers, polyline, resetDefaultLocation, storage, updatePolyLine, visibleOnMap;
+    // 説明画面
+    storage = localStorage;
+    helpPhase = storage.getItem("helpPhase");
+    helpProgress = function(e) {
+      var $img;
+      console.log(helpPhase);
+      if (4 < helpPhase) {
+        storage.setItem("helpPhase", helpPhase);
+        return $("#help").hide();
+      } else if (0 < helpPhase) {
+        $img = $("<img>");
+        $img.attr("src", "./img/help" + helpPhase + ".jpg");
+        $("#help").empty().append($img);
+        return helpPhase++;
+      } else {
+        $("#js-caution").empty().text("クリックで使い方を説明します。");
+        return helpPhase = 1;
+      }
+    };
+    $("#help").on("click", helpProgress);
+    helpProgress();
     // マップの初期化
     map = L.map("map");
     $store = $("#store");
@@ -570,6 +591,10 @@
     // 地図上のクリックイベント
     map.on('click', function(e) {
       var m;
+      if (helpPhase < 5) {
+        helpPhase = 5;
+        helpProgress();
+      }
       m = createMarkerAt(e.latlng);
       markers.push(m);
       return updatePolyLine();
@@ -721,7 +746,7 @@
     $("#clearAll").on("click", function(e) {
       return clearAll();
     });
-    return $("#loadData").on("click", function(e) {
+    $("#loadData").on("click", function(e) {
       var $c, data, j, len1, m, ref;
       clearAll();
       ref = JSON.parse($("#dataOutput").val());
@@ -734,6 +759,11 @@
         markers.push(m);
       }
       return updatePolyLine();
+    });
+    return $("#showHelp").on("click", function(e) {
+      $("#help").show();
+      helpPhase = 1;
+      return helpProgress();
     });
   });
 

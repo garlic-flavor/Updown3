@@ -11,21 +11,58 @@
     <script src="updown.js"> </script>
 
     <style>
-      body {padding: 0; margin: 0;}
-      html, body, #map {height: 100%; width: 100%;}
-      #UI { position: absolute; top: 5px; right: 5px; z-index: 999; background-color: white;}
-      .hide { display: none; }
+      body {
+          padding: 0;
+          margin: 0;
+      }
+      html, body, #map {
+          height: 100%;
+          width: 100%;
+      }
+      #UI {
+          position: absolute;
+          top: 5px;
+          right: 5px;
+          z-index: 999;
+          background-color: white;
+      }
+      .hide {
+          display: none;
+      }
+      #help {
+          position: absolute;
+          top:5%;
+          left: 25%;
+          width: 50%;
+          height: 90%;
+          z-index: 999;
+          background-color: white;
+          text-align: center;
+      }
+      #js-caution {
+          font-size: 150%;
+          color: red;
+      }
     </style>
   </head>
   <body>
+    <div id="help">
+      <h1>Updown3</h1>
+      <hr>
+      <a href="http://www.gsi.go.jp/index.html">国土地理院地図</a>を利用して断面図を作成します。<br>
+      地図表示に<a href="https://leafletjs.com/reference-1.4.0.html">leaflet</a>を利用しています。<br>
+      <div id="js-caution">
+        JavaScript を有効にして下さい。
+      </div>
+    </div>
     <div id="map"></div>
     <div id="UI">
       <div id="menu">
         <button id="createData">データ作成</button>
         <select id="dataFormat">
+          <option>SVG</option>
           <option>CSV</option>
           <option>JSON</option>
-          <option>SVG</option>
         </select>
         <br>
         <textarea id="dataOutput"></textarea>
@@ -36,6 +73,7 @@
         <progress class="hide" id="progressbar" max="100" value="0"></progress>
         <div id="svgcanvas"></div>
         <br><button id="closeButton">-</button>
+        <button id="showHelp">使い方</button>
       </div>
       <button id="openButton">+</button>
     </div>
