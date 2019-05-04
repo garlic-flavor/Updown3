@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>leaflet test</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js" integrity="sha512-QVftwZFqvtRNi0ZyCtsznlKSWOStnDORoefr1enyq5mVL4tmKB3S/EnC3rRJcxCPavG10IcrVGSmPh6Qw5lwrg==" crossorigin=""></script>
+
+    <script src="https://unpkg.com/jquery@3.4.0/dist/jquery.min.js" integrity="sha384-JUMjoW8OzDJw4oFpWIB2Bu/c6768ObEthBMVSiIx4ruBIEdyNSUQAjJNFqT5pnJ6" crossorigin="anonymous"></script>
+
+    <script src="updown.js"> </script>
+
+    <style>
+      body {padding: 0; margin: 0;}
+      html, body, #map {height: 100%; width: 100%;}
+      #UI { position: absolute; top: 5px; right: 5px; z-index: 999; background-color: white;}
+      .hide { display: none; }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="UI">
+      <div id="menu">
+        <button id="createData">データ作成</button>
+        <select id="dataFormat">
+          <option>CSV</option>
+          <option>JSON</option>
+          <option>SVG</option>
+        </select>
+        <br>
+        <textarea id="dataOutput"></textarea>
+        <br>
+        <button id="loadData">データ読み込み</button>
+        <button id="clearAll">全消去</button>
+        <br>
+        <progress class="hide" id="progressbar" max="100" value="0"></progress>
+        <div id="svgcanvas"></div>
+        <br><button id="closeButton">-</button>
+      </div>
+      <button id="openButton">+</button>
+    </div>
+    <div id="store" class="hide"></div>
+  </body>
+</html>
