@@ -419,13 +419,12 @@
 
   //#==============================================================================
   $(function() {
-    var $store, clearAll, createMarkerAt, getAllData, getAllHeights, getCoordFromLatLng, getHeightFromLatLng, helpPhase, helpProgress, loadImage, map, markers, polyline, resetDefaultLocation, storage, updatePolyLine, visibleOnMap;
+    var $store, clearAll, createMarkerAt, getAllData, getAllHeights, getCoordFromLatLng, getHeightFromLatLng, getTrueHeight, helpPhase, helpProgress, loadImage, map, markers, polyline, resetDefaultLocation, storage, updatePolyLine, visibleOnMap;
     // 説明画面
     storage = localStorage;
     helpPhase = storage.getItem("helpPhase");
     helpProgress = function(e) {
       var $img;
-      console.log(helpPhase);
       if (4 < helpPhase) {
         storage.setItem("helpPhase", helpPhase);
         return $("#help").hide();
@@ -554,7 +553,14 @@
           $p = $(m.getPopup().getContent());
           $p.find("span.latlng").text(`${ll.lat.toFixed(2)}, ${ll.lng.toFixed(2)}`);
           $p.find("span.height").text(h.toFixed(2));
-          return m.openPopup();
+          m.openPopup();
+          $p.find("input.title").focus();
+          return $p.find("input").on("keyup", function(e) {
+            if (e.keyCode === 0x0d || e.keyCode === 0x1b) {
+              m.closePopup();
+              return e.preventDefault();
+            }
+          });
         });
       }).on('drag', function(e) {
         return updatePolyLine();
@@ -643,6 +649,10 @@
       return $("#openButton").show();
     });
     
+    getTrueHeight = function(m) {
+      return parseFloat($(m.getPopup().getContent()).find("input.trueheight").val());
+    };
+    
     getAllHeights = function(cb) {
       var $bar, heights, proc, progress, requestNext;
       heights = [];
@@ -654,8 +664,14 @@
       });
       $bar.removeClass("hide");
       requestNext = function() {
+        var th;
         if (progress < markers.length) {
-          return getHeightFromLatLng(markers[progress].getLatLng(), 15, proc);
+          th = getTrueHeight(markers[progress]);
+          if (!isNaN(th)) {
+            return proc(th);
+          } else {
+            return getHeightFromLatLng(markers[progress].getLatLng(), 15, proc);
+          }
         } else {
           $bar.addClass("hide");
           return cb(heights);

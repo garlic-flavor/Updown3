@@ -273,9 +273,7 @@ $ ()->
     # 説明画面
     storage = localStorage;
     helpPhase = storage.getItem "helpPhase"
-
     helpProgress = (e)->
-        console.log helpPhase
         if 4 < helpPhase
             storage.setItem "helpPhase", helpPhase
             $("#help").hide()
@@ -397,6 +395,11 @@ $ ()->
                 $p.find("span.latlng").text "#{ll.lat.toFixed(2)}, #{ll.lng.toFixed(2)}"
                 $p.find("span.height").text h.toFixed 2
                 m.openPopup()
+                $p.find("input.title").focus()
+                $p.find("input").on "keyup", (e)->
+                    if e.keyCode is 0x0d or e.keyCode is 0x1b
+                        m.closePopup()
+                        e.preventDefault()
         .on 'drag', (e)->
             updatePolyLine()
         .on 'dragstart', (e)->
@@ -460,6 +463,10 @@ $ ()->
         $("#openButton").show()
 
     #
+    getTrueHeight = (m)->
+        parseFloat $(m.getPopup().getContent()).find("input.trueheight").val()
+
+    #
     getAllHeights = (cb)->
         heights = []
         progress = 0
@@ -469,7 +476,11 @@ $ ()->
 
         requestNext = ()->
             if progress < markers.length
-                getHeightFromLatLng markers[progress].getLatLng(), 15, proc
+                th = getTrueHeight markers[progress]
+                if not isNaN th
+                    proc th
+                else
+                    getHeightFromLatLng markers[progress].getLatLng(), 15, proc
             else
                 $bar.addClass "hide"
                 cb heights
