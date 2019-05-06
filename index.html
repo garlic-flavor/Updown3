@@ -2,13 +2,14 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <title>leaflet test</title>
+    <title>UPDOWN3</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js" integrity="sha512-QVftwZFqvtRNi0ZyCtsznlKSWOStnDORoefr1enyq5mVL4tmKB3S/EnC3rRJcxCPavG10IcrVGSmPh6Qw5lwrg==" crossorigin=""></script>
 
     <script src="https://unpkg.com/jquery@3.4.0/dist/jquery.min.js" integrity="sha384-JUMjoW8OzDJw4oFpWIB2Bu/c6768ObEthBMVSiIx4ruBIEdyNSUQAjJNFqT5pnJ6" crossorigin="anonymous"></script>
 
     <script src="updown.js"> </script>
+
 
     <style>
       body {
@@ -30,18 +31,22 @@
           display: none;
       }
       #help {
-          border: solid 2px;
           position: absolute;
-          top:5%;
-          width: 480px;
+          top:20px;
+          bottom: 20px;
+          width: 500px;
           left: 0;
           right: 0;
           margin-left: auto;
           margin-right: auto;
+          padding: 0;
           z-index: 999;
           background-color: white;
+          overflow-x: visible;
+          overflow-y: scroll;
+          text-align: center;
       }
-      #js-caution {
+      .caution {
           font-size: 150%;
           color: red;
       }
@@ -53,11 +58,23 @@
       <hr>
       <a href="http://www.gsi.go.jp/index.html">国土地理院地図</a>を利用して断面図を作成します。<br>
       地図表示に<a href="https://leafletjs.com/reference-1.4.0.html">leaflet</a>を利用しています。<br>
-      <div id="js-caution">
-        JavaScript を有効にして下さい。
-      </div>
+      DOMハンドリングに<a href="https://jquery.com/">JQuery</a>を利用しています。<br>
+      ライブラリホストに<a href="https://unpkg.com">unpkg</a>を利用しています。<br>
+      <a href="https://coffeescript.org/">CoffeeScript</a>記述されています。<br>
+      ライセンスは<a href="https://creativecommons.org/publicdomain/zero/1.0/deed.ja">CC0</a>です。
+      <hr>
+      <button class="closeHelp">閉じる</button>
+      <img src="./img/help1.jpg" /><br>
+      <img src="./img/help2.jpg" /><br>
+      <img src="./img/help3.jpg" /><br>
+      <img src="./img/help4.jpg" /><br>
+      <button class="closeHelp">閉じる</button>
     </div>
-    <div id="map"></div>
+    <div id="map">
+      <span class="caution">
+        JavaScript を有効にして下さい。
+      </span>
+    </div>
     <div id="UI">
       <div id="menu">
         <button id="createData">データ作成</button>
@@ -72,7 +89,7 @@
         <button id="loadData">データ読み込み</button>
         <button id="clearAll">全消去</button>
         <br>
-        <progress class="hide" id="progressbar" max="100" value="0"></progress>
+        <progress id="progressbar" max="100" value="0"></progress>
         <div id="svgcanvas"></div>
         <br><button id="closeButton">-</button>
         <button id="showHelp">使い方</button>

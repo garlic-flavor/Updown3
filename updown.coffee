@@ -1,3 +1,4 @@
+## [{x: 距離, y: 標高, label: ラベル}, ...]からSVGを出力する。jQueryを利用する。
 makeSVG = (data)->
     # 定数
     paperSize = {x: 297, y: 210}
@@ -14,22 +15,21 @@ makeSVG = (data)->
     scaleY = 1
 
     # Suger
-    $NS = (elementName)->
-        $ document.createElementNS SVGNS, elementName
+    # SVGの名前空間でDOM要素を作る。
+    $NS = (elementName, attr)->
+        $elem = $ document.createElementNS SVGNS, elementName
+        if attr? then $elem.attr attr else $elem
 
+    # SVGの<path>要素を作る。
     $path = (type, data)->
-        $p = $NS "path"
-        d = ""
-        for one, idx in data
-            d += "M" if idx is 0
-            d += one.x + "," + one.y + " "
-            d += "L" if idx is 0
-        $p.attr { class: type, d: d }
-        $p
+        $NS "path", {
+            class: type
+            d: ((if i is 0 then "M#{o.x},#{o.y} L" else "#{o.x},#{o.y} ") for o, i in data).join("")
+        }
 
+    # SVGの<text>要素を作る。
     $text = (type, pos, anchor, str)->
-        $t = $NS "text"
-        $t.attr {class: type, x: pos.x, y: pos.y}
+        $t = $NS "text", {class: type, x: pos.x, y: pos.y}
         switch anchor
             when "N"
                 $t.css {"text-anchor": "middle"}
@@ -42,8 +42,8 @@ makeSVG = (data)->
             when "W"
                 $t.css {"text-anchor": "end", "dominant-baseline": "central"}
         $t.text str
-        $t
 
+    # dataの値をSVG内での位置に変換する。
     xOnGraph = (x)-> graphTopLeft.x + graphMargin.left + x * scaleX
     yOnGraph = (y)-> graphTopLeft.y + graphSize.y - graphMargin.bottom - (y - minHeight) * scaleY
     posOnGraph = (p)-> {
@@ -65,8 +65,7 @@ makeSVG = (data)->
     # 描画
     ##--------------------------------------------------------------------
 
-    $svg = $NS "svg"
-    $svg.attr {
+    $svg = $NS "svg", {
         xmlns: SVGNS
         version: "1.1"
         height: paperSize.y + "mm"
@@ -74,54 +73,53 @@ makeSVG = (data)->
         viewBox: "0 0 " + paperSize.x + " " + paperSize.y
     }
 
-    $style = $ "<style>"
-    $style.text "
-    .data {
-    fill:none;
-    stroke:#000000;
-    stroke-width:0.2;
-    stroke-linecap:butt;
-    stroke-linejoin: miter;
-    stroke-opacity:1;
-    }
+    $ "<style>"
+        .text "
+        .data {
+            fill:none;
+            stroke:#000000;
+            stroke-width:0.2;
+            stroke-linecap:butt;
+            stroke-linejoin: miter;
+            stroke-opacity:1;
+        }
 
-    .bg {
-    fill: white;
-    stroke: none;
-    }
+        .bg {
+            fill: white;
+            stroke: none;
+        }
 
-    .frame {
-    fill:none;
-    stroke:#000000;
-    stroke-width:0.5;
-    stroke-linecap:butt;
-    stroke-linejoin: miter;
-    stroke-opacity:1;
-    }
+        .frame {
+            fill:none;
+            stroke:#000000;
+            stroke-width:0.5;
+            stroke-linecap:butt;
+            stroke-linejoin: miter;
+            stroke-opacity:1;
+        }
 
-    .scale {
-    font-size:3.5pt;
-    fill:#000000;
-    }
+        .scale {
+            font-size:3.5pt;
+            fill:#000000;
+        }
 
-    .label {
-    font-size:4pt;
-    fill:#000000;
-    }
+        .label {
+            font-size:4pt;
+            fill:#000000;
+        }
 
-    .label-guide {
-    fill:none;
-    stroke:#808080;
-    stroke-width:0.2;
-    stroke-opacity:1;
-    }
-     "
+        .label-guide {
+            fill:none;
+            stroke:#808080;
+            stroke-width:0.2;
+            stroke-opacity:1;
+        }
+        "
+        .appendTo $svg
 
-    $svg.append $style
-
+    # レイヤー1
     $g = $NS "g"
-    $svg.append $g
-
+        .appendTo $svg
 
     ##--------------------------------------------------------------------
     # 外枠
@@ -157,9 +155,8 @@ makeSVG = (data)->
     # 全距離
     x = xOnGraph maxLength
     y = graphTopLeft.y + graphSize.y
-    $g.append $path "frame", [{x: x, y: y}, {x: x, y: y + 5}]
-    $g.append $text "scale", {x: x, y: y + 5}, "S", (maxLength / 1000).toFixed 1
-
+    $g.append $path "frame", [{x: x, y: y}, {x: x, y: y + 10}]
+    $g.append $text "scale opaque", {x: x, y: y + 10}, "S", (maxLength / 1000).toFixed 1
 
     # 標高目盛
     for len in [minHeight + 100 .. maxHeight] by 100
@@ -172,12 +169,13 @@ makeSVG = (data)->
     # 最低標高
     x = graphTopLeft.x;
     y = yOnGraph minHeight
-    $g.append $path "frame", [{x: x-5, y: y}, {x: x, y: y}]
-    $g.append $text "scale", {x: x - 5, y: y}, "W", minHeight.toFixed 0
+    $g.append $path "frame", [{x: x-15, y: y}, {x: x, y: y}]
+    $g.append $text "scale opaque", {x: x-15, y: y}, "W", minHeight.toFixed 0
+
     # 最高標高
     y = yOnGraph maxHeight
-    $g.append $path "frame", [{x: x-5, y: y}, {x: x, y: y}]
-    $g.append $text "scale", {x: x - 5, y: y}, "W", maxHeight.toFixed 0
+    $g.append $path "frame", [{x: x-15, y: y}, {x: x, y: y}]
+    $g.append $text "scale opaque", {x: x-15, y: y}, "W", maxHeight.toFixed 0
 
     ##--------------------------------------------------------------------
     # UP-DOWN
@@ -202,7 +200,15 @@ makeSVG = (data)->
             prevX = x
 
     $svg # makeSVG()の戻り値
+
+##------------------------------------------------------------------------------
+# SVG要素からSVGファイルを構成する文字列を作る。
+makeSVGfile = (svg)->
+    '<?xml version="1.0" encoding="UTF-8"?>' + $(svg).html()
+
 ##==============================================================================
+## jQuery使わない系関数
+
 # 磁北点を得る。
 getNorthMagneticPole = ()->
     L.latLng 86.5, -172.6
@@ -227,7 +233,6 @@ getDotOf = (p1, p2) ->
 # 外積
 getCrossOf = (p1, p2) ->
     p1.x * p2.y - p1.y * p2.x
-
 
 # 全タイル内での位置から、現在のタイル位置を得る。
 getTileXYFromCoord = (p)->
@@ -267,165 +272,110 @@ getRGBFromImg = (canvas, p)->
     canvas.getContext('2d').getImageData p.x, p.y, 1, 1
     .data
 
+# local storage
+needsHelp = (e)-> not localStorage.getItem "secondInvocation"
+nomoreHelp = (e)-> localStorage.setItem "secondInvocation", true
 
 ##==============================================================================
-$ ()->
-    # 説明画面
-    storage = localStorage;
-    helpPhase = storage.getItem "helpPhase"
-    helpProgress = (e)->
-        if 4 < helpPhase
-            storage.setItem "helpPhase", helpPhase
-            $("#help").hide()
-        else if 0 < helpPhase
-            $img = $ "<img>"
-            $img.attr "src", "./img/help" + helpPhase + ".jpg"
-            $("#help").empty().append $img
-            helpPhase++
-        else
-            $("#js-caution").empty().text "クリックで使い方を説明します。"
-            helpPhase = 1;
-
-    $("#help").on "click", helpProgress
-    helpProgress()
-
-
-
-    # マップの初期化
+# Leaflet ラッパ。jQueryを利用します。
+# 国土地理院地図を利用し、日本を表示します。
+# データ書式
+# { lat: 緯度, lng: 経度, x: 距離, y: 標高, label: ラベル}
+#
+createMap = (store, progressbar)->
+    # 初期化
     map = L.map "map"
-    $store = $ "#store"
+    markers = [] # マーカー
 
     # マップを初期状態にする。
-    resetDefaultLocation = ()->
-        map.setView [34.64302, 135], 5
+    map.resetDefaultLocation = -> @.setView [34.64302, 135], 4
+
+    # 全消去
+    map.clearAll = ->
+        for one in markers
+            one.remove()
+        markers = []
+        updatePolyLine()
+
+    # 一括読み込み
+    map.load = (data)->
+        @.clearAll()
+        for one in data
+            m = createMarkerAt one
+            $c = $ m.getPopup().getContent()
+            $c.find("input.title").val(one.label)
+            $c.find("input.height").val(one.y)
+            markers.push m
+        updatePolyLine()
 
 
-    # 緯度軽度からピクセル値を得る。(原点は最左上タイルの左上。)
-    getCoordFromLatLng = (latlng, zoom)->
-        if 0 < zoom <= 14
-            map.project latlng, zoom
-        else
-            map.project latlng, 15
-
-    # タイルが現在の map上で見えているか。
-    visibleOnMap = (tile)->
-        mapB = map.getBounds()
-        tl = getTileXYFromCoord getCoordFromLatLng mapB.getNorthWest(), tile.zoom
-        br = getTileXYFromCoord getCoordFromLatLng mapB.getSouthEast(), tile.zoom
-        tl.x <= tile.x <= br.x and tl.y <= tile.y <= br.y
-
-    # urlの画像を読み込み、cb(img)を呼び出す。
-    loadImage = (z, url, cb, errorcb)->
-        $can = $store.children 'canvas[src="' + url + '"]'
-        if 0 < $can.length
-            # console.log "do recycle #{url}"
-            cb $can[0]
-        else
-            # console.log "start loading of #{url}"
-            $img = $ "<img>"
-            $img.attr "crossOrigin", "Anonymous"
-            $img.on "load", (e)->
-                # console.log "load completed"
-                img = e.target
-                $can = $ "<canvas>"
-                $can.attr "width", img.width
-                $can.attr "height", img.height
-                $can.attr "src", img.src
-                ctx = $can[0].getContext('2d')
-                ctx.drawImage img, 0, 0
-                $store.append($can)
-                cb $can[0]
-            $img.on "error", errorcb
-            $img.attr "src", url
-
-            # 古いのを削除する。
-            $store.children 'canvas'
-            .each (idx)->
-                $t = $ this
-                u = $t.attr "src"
-                $t.remove() if not visibleOnMap getTileInfoFromURL u
-                # $tt = $t.remove() if not visibleOnMap getTileInfoFromURL u
-                # if $tt?
-                #     console.log "removing of " + $tt.attr "src"
-                # true
-                ##<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    #
+    map.getAllData = (cb)->
+        getAllHeights (heights)->
+            wl = 0
+            cb({
+                lat: one.getLatLng().lat
+                lng: one.getLatLng().lng
+                x: if i is 0 then 0 else wl+=markers[i-1].getLatLng().distanceTo one.getLatLng()
+                y: heights[i],
+                label: $(one.getPopup().getContent()).find("input.title").val()
+            } for one, i in markers)
 
 
-    # 緯度軽度から標高を得る。
-    getHeightFromLatLng = (latlng, zoom, cb) ->
-        coord = getCoordFromLatLng latlng, zoom
-        url = getDEMURLFromTileXY getTileXYFromCoord(coord), zoom
-        p = getPointOnTileFromCoord coord
-        loadImage zoom, url, (canvas)->
-            h = getHeightFromRGB getRGBFromImg canvas, p
-            if isNaN(h) and zoom is 15
-                getHeightFromLatLng latlng, 14, cb
-            else
-                cb h
-        , (e)-> # 失敗したら10mBメッシュで取り直し。
-            if zoom < 15 then cb Number.NaN else getHeightFromLatLng latlng, 14, cb
-
-    # マップ右下のリンクを出す。
-    L.tileLayer 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',
-        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル</a>'
-        maxZoom: 18
-    .addTo map
-
-    # 日本を表示する。
-    resetDefaultLocation()
-
-    # マーカー
-    markers = []
+    ##--------------------------------------------------------------------
+    ## privates
+    ##--------------------------------------------------------------------
+    $store = $ store # 非表示の、キャンバス入れとく所
 
     # マーカーの作成
     createMarkerAt = (latlng)->
-        $cont = $ "<div><input class='title'></title><br>
-                   緯度軽度: <span class='latlng'></span><br>
-                   標高: <span class='height'></span><br>
-                   標高(実際):<input class='trueheight'></input>m<br>
-                   <button>削除</button></div>"
+        $cont = $ "
+            <div><input type='text' class='title'></input><br>
+            緯度軽度: <span class='latlng'></span><br>
+            標高: <input type='text' class='height' val='N/A'></input>m<br>
+            <button>削除</button></div>"
 
         m = L.marker latlng, {riseOnHover: true, draggable: true}
         .bindPopup $cont[0]
         .on 'click', (e)->
-            ll = this.getLatLng()
-            m = this
-            getHeightFromLatLng ll, map.getZoom(), (h)->
-                $p = $ m.getPopup().getContent()
-                $p.find("span.latlng").text "#{ll.lat.toFixed(2)}, #{ll.lng.toFixed(2)}"
-                $p.find("span.height").text h.toFixed 2
-                m.openPopup()
+            ll = @.getLatLng()
+            $p = $ @.getPopup().getContent()
+            $p.find("span.latlng").text "#{ll.lat.toFixed(2)}, #{ll.lng.toFixed(2)}"
+            val = $p.find("input.height").val()
+            height = if not val then Number.NaN else Number val
+            if isNaN height
+                getHeightFromLatLng ll, map.getZoom(), (h)->
+                    $p.find("input.height").val h.toFixed 2
+                    m.openPopup()
+                    $p.find("input.title").focus()
+            else
+                @.openPopup()
                 $p.find("input.title").focus()
-                $p.find("input").on "keyup", (e)->
-                    if e.keyCode is 0x0d or e.keyCode is 0x1b
-                        m.closePopup()
-                        e.preventDefault()
+
         .on 'drag', (e)->
             updatePolyLine()
         .on 'dragstart', (e)->
             for one in markers
-                one.setOpacity(0.3) if one isnt this
+                one.setOpacity(0) if one isnt this
         .on 'dragend', (e)->
+            $(@.getPopup().getContent()).find("input.height").val "N/A"
             for one in markers
                 one.setOpacity(1.0)
         .addTo map
 
+        # 削除ボタン
         $cont.find("button").on "click", (e)->
             markers = markers.filter (one)=>one isnt m
-            updatePolyLine()
             m.remove()
+            updatePolyLine()
+
+        # テキストボックスで Enter か ESC を押したらバルーンを閉じる。
+        $cont.find("input").on "keyup", (e)->
+            if e.keyCode is 0x0d or e.keyCode is 0x1b
+                m.closePopup()
+                e.preventDefault()
 
         return m
-
-    # 地図上のクリックイベント
-    map.on 'click', (e)->
-        if helpPhase < 5
-            helpPhase = 5
-            helpProgress()
-
-        m = createMarkerAt e.latlng
-        markers.push m
-        updatePolyLine()
 
     # ルートの赤い線
     polyline = L.polyline([], {color: 'red'}).addTo(map)
@@ -441,7 +391,6 @@ $ ()->
             nv21 = normalize v21
             nv31 = normalize v31
             if calcLength(v21) < calcLength(v31) and 0 < getDotOf(v21, v31) and Math.abs(getCrossOf(nv31, nv21)) < crossBorder
-
                 m = createMarkerAt e.latlng
                 markers.splice(idx + 1, 0, m)
                 updatePolyLine()
@@ -449,8 +398,114 @@ $ ()->
         L.DomEvent.stopPropagation(e)
 
     # ルートの更新
-    updatePolyLine = ()->
-        polyline.setLatLngs markers.map (m)=>m.getLatLng()
+    updatePolyLine = ->
+        polyline.setLatLngs(m.getLatLng() for m in markers)
+
+    # タイルが現在の map上で見えているか。
+    # tile = {x: x, y: y, zoom: zoom}
+    visibleOnMap = (tile)->
+        mapB = map.getBounds()
+        tl = getTileXYFromCoord map.project mapB.getNorthWest(), tile.zoom
+        br = getTileXYFromCoord map.project mapB.getSouthEast(), tile.zoom
+        tl.x <= tile.x <= br.x and tl.y <= tile.y <= br.y
+
+    # urlの画像を読み込み、cb(img)を呼び出す。
+    loadImage = (z, url, cb, errorcb)->
+        $can = $store.children 'canvas[src="' + url + '"]'
+        if 0 < $can.length
+            # console.log "do recycle #{url}"
+            cb $can[0]
+        else
+            # console.log "start loading of #{url}"
+            $img = $ "<img>"
+            .attr "crossOrigin", "Anonymous"
+            .on "load", (e)->
+                # console.log "load completed"
+                img = e.target
+                $can = $ "<canvas>"
+                .attr {width: img.width, height: img.height, src: img.src}
+                ctx = $can[0].getContext('2d')
+                ctx.drawImage img, 0, 0
+                $store.append($can)
+                cb $can[0]
+            .on "error", errorcb
+            $img.attr "src", url
+
+            # 古いのを削除する。
+            $store.children 'canvas'
+            .each (idx)->
+                $t = $ @
+                u = $t.attr "src"
+                $t.remove() if not visibleOnMap getTileInfoFromURL u
+
+    # 緯度軽度から標高を得る。
+    getHeightFromLatLng = (latlng, zoom, cb) ->
+        coord = map.project latlng, zoom
+        url = getDEMURLFromTileXY getTileXYFromCoord(coord), zoom
+        p = getPointOnTileFromCoord coord
+        loadImage zoom, url, (canvas)->
+            h = getHeightFromRGB getRGBFromImg canvas, p
+            if isNaN(h) and zoom is 15
+                getHeightFromLatLng latlng, 14, cb
+            else
+                cb h
+        , (e)-> # 失敗したら10mBメッシュで取り直し。
+            if zoom < 15 then cb Number.NaN else getHeightFromLatLng latlng, 14, cb
+
+
+    #
+    getAllHeights = (cb)->
+        heights = []
+        progress = 0
+        $bar = $ progressbar
+        $bar.attr {max: markers.length, value: 0}
+
+        requestNext = ()->
+            if progress < markers.length
+                th = getTrueHeight markers[progress]
+                if not isNaN th
+                    proc th
+                else
+                    getHeightFromLatLng markers[progress].getLatLng(), 15, proc
+            else
+                $bar.val 0
+                cb heights
+        proc = (h)->
+            heights.push h
+            ++progress;
+            $bar.val progress
+            requestNext()
+
+        requestNext()
+
+    # バルーン内の本当の標高を得る。
+    getTrueHeight = (m)->
+        parseFloat $(m.getPopup().getContent()).find("input.height").val()
+
+    ##--------------------------------------------------------------------
+    # マップ右下のリンクを出す。
+    L.tileLayer 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',
+        attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">地理院タイル</a>'
+        maxZoom: 18
+    .addTo map
+
+    # 地図上のクリックイベント
+    map.on 'click', (e)->
+        m = createMarkerAt e.latlng
+        markers.push m
+        updatePolyLine()
+
+    # 日本を表示する。
+    map.resetDefaultLocation()
+    map
+
+##==============================================================================
+## jQuery 開始
+$ ->
+    # 説明画面
+    closeHelp = (e)->$("#help").hide()
+    $(".closeHelp").on "click", closeHelp
+    if needsHelp() then nomoreHelp() else closeHelp()
 
     # UIの設定
     $("#menu").hide()
@@ -462,106 +517,42 @@ $ ()->
         $("#menu").hide()
         $("#openButton").show()
 
-    #
-    getTrueHeight = (m)->
-        parseFloat $(m.getPopup().getContent()).find("input.trueheight").val()
+    ##--------------------------------------------------------------------
+    # マップの初期化
+    map = createMap "#store", "#progressbar"
 
-    #
-    getAllHeights = (cb)->
-        heights = []
-        progress = 0
-        $bar = $ "#progressbar"
-        $bar.attr {max: markers.length, value: 0}
-        $bar.removeClass "hide"
-
-        requestNext = ()->
-            if progress < markers.length
-                th = getTrueHeight markers[progress]
-                if not isNaN th
-                    proc th
-                else
-                    getHeightFromLatLng markers[progress].getLatLng(), 15, proc
-            else
-                $bar.addClass "hide"
-                cb heights
-        proc = (h)->
-            heights.push h
-            ++progress;
-            $bar.attr "value", progress
-            requestNext()
-
-        requestNext()
-
-    #
+    # 全消去
     clearAll = ()->
-        for one in markers
-            one.remove()
-        markers = []
-        updatePolyLine()
+        map.clearAll()
         $("#svgcanvas").empty()
 
-    #
-    getAllData = (cb)->
-        getAllHeights (heights)->
-            walklength = 0
-            dists = []
-            for one, idx in markers
-                if idx is 0
-                    dists.push 0
-                else
-                    walklength += markers[idx-1].getLatLng()
-                        .distanceTo one.getLatLng()
-                    dists.push walklength
-            data = []
-            for one, i in markers
-                data.push { x: dists[i], y: heights[i], label: $(one.getPopup().getContent()).find("input.title").val()}
-
-            cb data
-
-
+    # データ作成する。
     $("#createData").on "click", (e)->
         sel = ($ "#dataFormat")[0]
         switch sel.options[sel.selectedIndex].value
             when "CSV"
-                getAllData (data)->
-                    str = ""
-                    for one in data
-                        str += one.x.toFixed(2) + ", " + one.y.toFixed(2) + ", " + one.label + "\r\n"
-                    $("#dataOutput").val str
+                map.getAllData (data)->
+                    $("#dataOutput").val ("#{o.x.toFixed(2)}, #{o.y.toFixed(2)}, \"#{o.label}\"" for o in data).join "\r\n"
 
             when "JSON"
-                data = []
-                for m in markers
-                    p = m.getLatLng()
-                    $c = $ m.getPopup().getContent()
-                    data.push ({
-                        lat: p.lat
-                        lng: p.lng
-                        title: $c.find("input.title").val()
-                        trueHeight: Number $c.find("input.trueheight").val()
-                    })
-                $("#dataOutput").val JSON.stringify data
+                map.getAllData (data)->
+                    $("#dataOutput").val JSON.stringify data
 
             when "SVG"
                 $("#svgcanvas").empty()
-                getAllData (data)->
+                map.getAllData (data)->
                     $("#svgcanvas").append makeSVG data
-                    $("#dataOutput").val '<?xml version="1.0" encoding="UTF-8"?>' + $("#svgcanvas").html()
+                    $("#dataOutput").val makeSVGfile $ "#svgcanvas"
 
+    #
     $("#clearAll").on "click", (e)->
         clearAll()
 
+    #
     $("#loadData").on "click", (e)->
         clearAll()
-        for data in JSON.parse $("#dataOutput").val()
-            m = createMarkerAt L.latLng data.lat, data.lng
-            $c = $ m.getPopup().getContent()
-            $c.find("input.title").val(data.title)
-            $c.find("input.trueheight").val(data.trueHeight)
-            markers.push m
-        updatePolyLine()
+        map.load JSON.parse $("#dataOutput").val()
 
+    #
     $("#showHelp").on "click", (e)->
         $("#help").show()
-        helpPhase = 1
-        helpProgress()
