@@ -4,11 +4,11 @@
   var calcLength, createMap, getCrossOf, getDEM5AURLFromTileXY, getDEMURLFromTileXY, getDotOf, getHeightFromRGB, getNorthMagneticPole, getPointOnTileFromCoord, getRGBFromImg, getTileInfoFromURL, getTileXYFromCoord, makeSVG, makeSVGfile, needsHelp, nomoreHelp, normalize, subtract;
 
   makeSVG = function(data) {
-    var $NS, $g, $path, $svg, $text, SVGNS, d, graphMargin, graphSize, graphTopLeft, isUpper, j, k, len, len1, len2, len3, maxHeight, maxLength, minHeight, n, one, paperSize, posOnGraph, prevX, q, ref, ref1, ref2, scaleX, scaleY, x, xOnGraph, y, yOnGraph;
+    var $NS, $g, $path, $svg, $text, SVGNS, d, graphMargin, graphSize, graphTopLeft, isUpper, j, k, len, len1, len2, len3, maxHeight, maxLength, maxX, maxY, minHeight, minY, n, one, paperSize, posOnGraph, prevX, q, ref, ref1, ref2, scaleX, scaleY, x, xOnGraph, y, yOnGraph;
     // 定数
     paperSize = {
       x: 297,
-      y: 210
+      y: 210 // in mm. A4
     };
     graphSize = {
       x: 230,
@@ -189,11 +189,28 @@
       x: graphTopLeft.x,
       y: graphTopLeft.y + graphSize.y
     }, "SW", ((scaleY / scaleX).toFixed(1)) + ":1"));
-// 距離目盛
+    // 全距離
+    x = xOnGraph(maxLength);
+    y = graphTopLeft.y + graphSize.y;
+    $g.append($path("frame", [
+      {
+        x: x,
+        y: y
+      },
+      {
+        x: x,
+        y: y + 5
+      }
+    ]));
+    $g.append($text("scale opaque", {
+      x: x,
+      y: y + 5
+    }, "S", (maxLength / 1000).toFixed(1)));
+    maxX = x;
     for (len = k = 1000, ref = maxLength; k <= ref; len = k += 1000) {
       x = xOnGraph(len);
       y = graphTopLeft.y + graphSize.y;
-      if ((len % 5000) === 0) {
+      if ((len % 5000) === 0 && 10 < (maxX - x)) {
         $g.append($path("frame", [
           {
             x: x,
@@ -221,25 +238,41 @@
         ]));
       }
     }
-    // 全距離
-    x = xOnGraph(maxLength);
-    y = graphTopLeft.y + graphSize.y;
+    // 最低標高
+    x = graphTopLeft.x;
+    y = yOnGraph(minHeight);
     $g.append($path("frame", [
       {
-        x: x,
+        x: x - 5,
         y: y
       },
       {
         x: x,
-        y: y + 10
+        y: y
       }
     ]));
     $g.append($text("scale opaque", {
-      x: x,
-      y: y + 10
-    }, "S", (maxLength / 1000).toFixed(1)));
-// 標高目盛
-    for (len = n = ref1 = minHeight + 100, ref2 = maxHeight; n <= ref2; len = n += 100) {
+      x: x - 5,
+      y: y
+    }, "W", minHeight.toFixed(0)));
+    minY = y;
+    y = yOnGraph(maxHeight);
+    $g.append($path("frame", [
+      {
+        x: x - 5,
+        y: y
+      },
+      {
+        x: x,
+        y: y
+      }
+    ]));
+    $g.append($text("scale opaque", {
+      x: x - 5,
+      y: y
+    }, "W", maxHeight.toFixed(0)));
+    maxY = y;
+    for (len = n = ref1 = minHeight + 100, ref2 = maxHeight + 100; n <= ref2; len = n += 100) {
       len2 = len - (len % 100);
       x = graphTopLeft.x;
       y = yOnGraph(len2);
@@ -253,44 +286,13 @@
           y: y
         }
       ]));
-      $g.append($text("scale", {
-        x: x - 5,
-        y: y
-      }, "W", len2));
+      if (5 < (minY - y) && 5 < (y - maxY)) {
+        $g.append($text("scale", {
+          x: x - 5,
+          y: y
+        }, "W", len2));
+      }
     }
-    // 最低標高
-    x = graphTopLeft.x;
-    y = yOnGraph(minHeight);
-    $g.append($path("frame", [
-      {
-        x: x - 15,
-        y: y
-      },
-      {
-        x: x,
-        y: y
-      }
-    ]));
-    $g.append($text("scale opaque", {
-      x: x - 15,
-      y: y
-    }, "W", minHeight.toFixed(0)));
-    // 最高標高
-    y = yOnGraph(maxHeight);
-    $g.append($path("frame", [
-      {
-        x: x - 15,
-        y: y
-      },
-      {
-        x: x,
-        y: y
-      }
-    ]));
-    $g.append($text("scale opaque", {
-      x: x - 15,
-      y: y
-    }, "W", maxHeight.toFixed(0)));
     //#--------------------------------------------------------------------
     // UP-DOWN
     $g.append($path("data", (function() {

@@ -1,7 +1,7 @@
 ## [{x: 距離, y: 標高, label: ラベル}, ...]からSVGを出力する。jQueryを利用する。
 makeSVG = (data)->
     # 定数
-    paperSize = {x: 297, y: 210}
+    paperSize = {x: 297, y: 210} # in mm. A4
     graphSize = {x: 230, y: 160}
     graphTopLeft = {x: 30, y: 20}
     graphMargin = {top: 10, bottom: 10, left: 0, right: 10}
@@ -143,39 +143,46 @@ makeSVG = (data)->
     # 左下
     $g.append $text "scale", {x: graphTopLeft.x, y: graphTopLeft.y+ graphSize.y}, "SW", ((scaleY/scaleX).toFixed 1) + ":1"
 
+    # 全距離
+    x = xOnGraph maxLength
+    y = graphTopLeft.y + graphSize.y
+    $g.append $path "frame", [{x: x, y: y}, {x: x, y: y + 5}]
+    $g.append $text "scale opaque", {x: x, y: y + 5}, "S", (maxLength / 1000).toFixed 1
+    maxX = x;
+
     # 距離目盛
     for len in [1000..maxLength] by 1000
         x = xOnGraph len
         y = graphTopLeft.y + graphSize.y
-        if (len % 5000) is 0
+        if (len % 5000) is 0 and 10 < (maxX - x)
+
             $g.append $path "frame", [{x: x, y: y}, {x: x, y: y + 5}]
             $g.append $text "scale", {x: x, y: y + 5}, "S", len / 1000
         else
             $g.append $path "frame", [{x: x, y: y}, {x: x, y: y + 2}]
-    # 全距離
-    x = xOnGraph maxLength
-    y = graphTopLeft.y + graphSize.y
-    $g.append $path "frame", [{x: x, y: y}, {x: x, y: y + 10}]
-    $g.append $text "scale opaque", {x: x, y: y + 10}, "S", (maxLength / 1000).toFixed 1
-
-    # 標高目盛
-    for len in [minHeight + 100 .. maxHeight] by 100
-        len2 = len - (len % 100)
-        x = graphTopLeft.x;
-        y = yOnGraph len2
-        $g.append $path "frame", [{x: x - 5, y: y}, {x: x, y: y}]
-        $g.append $text "scale", {x: x - 5, y: y}, "W", len2
 
     # 最低標高
     x = graphTopLeft.x;
     y = yOnGraph minHeight
-    $g.append $path "frame", [{x: x-15, y: y}, {x: x, y: y}]
-    $g.append $text "scale opaque", {x: x-15, y: y}, "W", minHeight.toFixed 0
+    $g.append $path "frame", [{x: x-5, y: y}, {x: x, y: y}]
+    $g.append $text "scale opaque", {x: x-5, y: y}, "W", minHeight.toFixed 0
+    minY = y;
 
     # 最高標高
     y = yOnGraph maxHeight
-    $g.append $path "frame", [{x: x-15, y: y}, {x: x, y: y}]
-    $g.append $text "scale opaque", {x: x-15, y: y}, "W", maxHeight.toFixed 0
+    $g.append $path "frame", [{x: x-5, y: y}, {x: x, y: y}]
+    $g.append $text "scale opaque", {x: x-5, y: y}, "W", maxHeight.toFixed 0
+    maxY = y;
+
+    # 標高目盛
+    for len in [minHeight + 100 .. maxHeight + 100] by 100
+        len2 = len - (len % 100)
+        x = graphTopLeft.x;
+        y = yOnGraph len2
+        $g.append $path "frame", [{x: x - 5, y: y}, {x: x, y: y}]
+        if 5 < (minY - y) and 5 < (y - maxY)
+            $g.append $text "scale", {x: x - 5, y: y}, "W", len2
+
 
     ##--------------------------------------------------------------------
     # UP-DOWN
