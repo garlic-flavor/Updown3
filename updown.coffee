@@ -1,4 +1,5 @@
-## [{x: 距離, y: 標高, label: ラベル}, ...]からSVGを出力する。jQueryを利用する。
+# [{x: 距離, y: 標高, label: ラベル, inc: 傾斜}, ...]からSVGを出力する。
+# jQueryを利用する。
 makeSVG = (data)->
     # 定数
     paperSize = {x: 297, y: 210} # in mm. A4
@@ -31,8 +32,6 @@ makeSVG = (data)->
     $text = (type, pos, anchor, str)->
         $t = $NS "text", {class: type, x: pos.x, y: pos.y}
         switch anchor
-            when "N"
-                $t.css {"text-anchor": "middle"}
             when "E"
                 $t.css {"text-anchor": "start", "dominant-baseline": "central"}
             when "SW"
@@ -41,15 +40,26 @@ makeSVG = (data)->
                 $t.css {"text-anchor": "middle", "dominant-baseline": "hanging"}
             when "W"
                 $t.css {"text-anchor": "end", "dominant-baseline": "central"}
+            else # "N"
+                $t.css {"text-anchor": "middle"}
         $t.text str
 
     # dataの値をSVG内での位置に変換する。
     xOnGraph = (x)-> graphTopLeft.x + graphMargin.left + x * scaleX
     yOnGraph = (y)-> graphTopLeft.y + graphSize.y - graphMargin.bottom - (y - minHeight) * scaleY
+    # 傾斜の変換
+    incOnGraph = (inc)->graphTopLeft.y + graphSize.y - graphMargin.bottom - inc  * inc * 40
+
     posOnGraph = (p)-> {
         x: xOnGraph p.x
         y: yOnGraph p.y
     }
+
+    incPosOnGraph = (p)-> {
+        x: xOnGraph p.x
+        y: incOnGraph p.inc
+    }
+
 
     ##--------------------------------------------------------------------
     # データ解析
@@ -78,7 +88,16 @@ makeSVG = (data)->
         .data {
             fill:none;
             stroke:#000000;
-            stroke-width:0.2;
+            stroke-width:0.4;
+            stroke-linecap:butt;
+            stroke-linejoin: miter;
+            stroke-opacity:1;
+        }
+
+        .inc {
+            fill:none;
+            stroke:#ff0000;
+            stroke-width:0.4;
             stroke-linecap:butt;
             stroke-linejoin: miter;
             stroke-opacity:1;
@@ -92,7 +111,7 @@ makeSVG = (data)->
         .frame {
             fill:none;
             stroke:#000000;
-            stroke-width:0.5;
+            stroke-width:0.8;
             stroke-linecap:butt;
             stroke-linejoin: miter;
             stroke-opacity:1;
@@ -136,11 +155,11 @@ makeSVG = (data)->
         {x: graphTopLeft.x, y: graphTopLeft.y + graphSize.y},
         {x: graphTopLeft.x + graphSize.x, y: graphTopLeft.y + graphSize.y }
     ]
-    # 左上
+    # 左上(標高)
     $g.append $text "scale", graphTopLeft, "N", "標高(m)"
-    # 右下
+    # 右下(水平距離)
     $g.append $text "scale", {x: graphTopLeft.x + graphSize.x, y: graphTopLeft.y + graphSize.y}, "E", "距離(km)"
-    # 左下
+    # 左下(倍率)
     $g.append $text "scale", {x: graphTopLeft.x, y: graphTopLeft.y+ graphSize.y}, "SW", ((scaleY/scaleX).toFixed 1) + ":1"
 
     # 全距離
@@ -183,6 +202,9 @@ makeSVG = (data)->
         if 5 < (minY - y) and 5 < (y - maxY)
             $g.append $text "scale", {x: x - 5, y: y}, "W", len2
 
+    ##--------------------------------------------------------------------
+    # 傾斜
+    $g.append $path "inc", (incPosOnGraph one for one in data)
 
     ##--------------------------------------------------------------------
     # UP-DOWN
@@ -216,9 +238,22 @@ makeSVGfile = (svg)->
 ##==============================================================================
 ## jQuery使わない系関数
 
-# 磁北点を得る。
-getNorthMagneticPole = ()->
-    L.latLng 86.5, -172.6
+# 地球の半径(m)(赤道の値。ただし、ここで地球は正円と近似する。)
+# https://ja.wikipedia.org/wiki/%E5%9C%B0%E7%90%83%E5%8D%8A%E5%BE%84
+EARTH_RADIUS = 6378136.6
+
+# 地球の円周
+EARTH_CIRCLE = EARTH_RADIUS * 2 * Math.PI
+
+# degree to radian
+TO_RADIAN = Math.PI / 180
+
+# あるズームレベルにおけるマップの全サイズ(ピクセル)
+MAP_SIZE = (z)-> 256 * (2 ** z)
+
+# 指定のズームレベル、緯度で1pixelが何メートルになるか。
+getLengthOfPixel = (zoom, lat)->
+    EARTH_CIRCLE * Math.cos(lat * TO_RADIAN) / MAP_SIZE(zoom)
 
 # 長さ
 calcLength = (p)->
@@ -228,10 +263,6 @@ calcLength = (p)->
 normalize = (p)->
     l = calcLength p
     L.point p.x / l, p.y / l
-
-# 引き算
-subtract = (p1, p2)->
-    L.point p1.x - p2.x, p1.y - p2.y
 
 # 内積
 getDotOf = (p1, p2) ->
@@ -274,10 +305,26 @@ getHeightFromRGB = (rgb)->
     else
         Number.NaN
 
-# img要素から p の位置のRGBデータを得る。
+# canvas要素から p の位置のRGBデータを得る。
 getRGBFromImg = (canvas, p)->
     canvas.getContext('2d').getImageData p.x, p.y, 1, 1
     .data
+
+# canvas要素から p の位置の傾斜情報を得る。
+getIncFromImg = (canvas, p, zoom, lat)->
+    data = canvas.getContext('2d').getImageData p.x - 1, p.y - 1, 3, 3
+        .data
+    max = -999999
+    min = 999999
+    truncatedRatio = 1 # 画像端の場合の調整
+    for i in [0..data.length] by 4
+        if data[i+3] is 0 # 透明ピクセルは範囲外
+            truncatedRatio = 2
+            continue
+        h = getHeightFromRGB data.slice i
+        max = h if max < h
+        min = h if h < min
+    if max <= min then 0 else (max - min) * truncatedRatio / 2 / getLengthOfPixel zoom, lat
 
 # local storage
 needsHelp = (e)-> not localStorage.getItem "secondInvocation"
@@ -287,7 +334,8 @@ nomoreHelp = (e)-> localStorage.setItem "secondInvocation", true
 # Leaflet ラッパ。jQueryを利用します。
 # 国土地理院地図を利用し、日本を表示します。
 # データ書式
-# { lat: 緯度, lng: 経度, x: 距離, y: 標高, label: ラベル}
+# { lat: 緯度, lng: 経度, x: 距離, y: 標高, label: ラベル, inc: 傾斜 }
+# inc は付近の等高線のつまり具合の指標を表す。
 #
 createMap = (store, progressbar)->
     # 初期化
@@ -295,14 +343,14 @@ createMap = (store, progressbar)->
     markers = [] # マーカー
 
     # マップを初期状態にする。
-    map.resetDefaultLocation = -> @.setView [34.64302, 135], 4
+    map.resetDefaultLocation = -> @.setView [36.104611,140.084556], 5
 
     # 全消去
     map.clearAll = ->
         for one in markers
             one.remove()
         markers = []
-        updatePolyLine()
+        polyline.update()
 
     # 一括読み込み
     map.load = (data)->
@@ -310,23 +358,25 @@ createMap = (store, progressbar)->
         for one in data
             m = createMarkerAt one
             $c = $ m.getPopup().getContent()
-            $c.find("input.title").val(one.label)
-            $c.find("input.height").val(one.y)
+            $c.find("input.title").val one.label if one.label?
+            $c.find("input.height").val one.y if one.y?
+            $c.find("span.inc").text one.inc.toFixed 2 if one.inc?
             markers.push m
-        updatePolyLine()
+        polyline.update()
 
 
     #
     map.getAllData = (cb)->
-        getAllHeights (heights)->
+        queryAllHeightAndInc (m)->
             wl = 0
             cb({
                 lat: one.getLatLng().lat
                 lng: one.getLatLng().lng
-                x: if i is 0 then 0 else wl+=markers[i-1].getLatLng().distanceTo one.getLatLng()
-                y: heights[i],
-                label: $(one.getPopup().getContent()).find("input.title").val()
-            } for one, i in markers)
+                x: if i is 0 then 0 else wl+=m[i-1].getLatLng().distanceTo one.getLatLng()
+                y: one.getHeight()
+                label: one.getTitle()
+                inc: one.getIncline()
+            } for one, i in m)
 
 
     ##--------------------------------------------------------------------
@@ -340,6 +390,7 @@ createMap = (store, progressbar)->
             <div><input type='text' class='title'></input><br>
             緯度軽度: <span class='latlng'></span><br>
             標高: <input type='text' class='height' val='N/A'></input>m<br>
+            傾斜: <span class='inc'>N/A</span><br>
             <button>削除</button></div>"
 
         m = L.marker latlng, {riseOnHover: true, draggable: true}
@@ -348,24 +399,19 @@ createMap = (store, progressbar)->
             ll = @.getLatLng()
             $p = $ @.getPopup().getContent()
             $p.find("span.latlng").text "#{ll.lat.toFixed(2)}, #{ll.lng.toFixed(2)}"
-            val = $p.find("input.height").val()
-            height = if not val then Number.NaN else Number val
-            if isNaN height
-                getHeightFromLatLng ll, map.getZoom(), (h)->
-                    $p.find("input.height").val h.toFixed 2
-                    m.openPopup()
-                    $p.find("input.title").focus()
-            else
-                @.openPopup()
+            @.queryHeightAndInc ()->
+                m.openPopup()
                 $p.find("input.title").focus()
 
         .on 'drag', (e)->
-            updatePolyLine()
+            polyline.update()
         .on 'dragstart', (e)->
             for one in markers
                 one.setOpacity(0) if one isnt this
         .on 'dragend', (e)->
-            $(@.getPopup().getContent()).find("input.height").val "N/A"
+            $cont = $ @.getPopup().getContent()
+            $cont.find("input.height").val "N/A"
+            $cont.find("span.inc").text "N/A"
             for one in markers
                 one.setOpacity(1.0)
         .addTo map
@@ -374,15 +420,41 @@ createMap = (store, progressbar)->
         $cont.find("button").on "click", (e)->
             markers = markers.filter (one)=>one isnt m
             m.remove()
-            updatePolyLine()
+            polyline.update()
 
-        # テキストボックスで Enter か ESC を押したらバルーンを閉じる。
+        # テキストボックスで ESC を押したらバルーンを閉じる。
         $cont.find("input").on "keyup", (e)->
-            if e.keyCode is 0x0d or e.keyCode is 0x1b
+            if e.keyCode is 0x1b
                 m.closePopup()
                 e.preventDefault()
 
+        # バルーンのタイトルを得る。
+        m.getTitle = ->
+            $cont.find("input.title").val()
+
+        # バルーン内の標高を得る。
+        m.getHeight = ->
+            val = $cont.find("input.height").val()
+            if not val then Number.NaN else parseFloat val
+
+        # バルーン内の傾斜を得る。
+        m.getIncline = ->
+            parseFloat $cont.find("span.inc").text()
+
+        # バルーンに標高値と傾斜を設定する。
+        m.queryHeightAndInc = (cb)->
+            height = @.getHeight()
+            inc = @.getIncline()
+            if isNaN(height) or isNaN(inc)
+                getHeightAndIncFromLatLng @.getLatLng(), 15, (h, i)->
+                    $cont.find("input.height").val h.toFixed 2
+                    $cont.find("span.inc").text i.toFixed 2
+                    cb? h, i
+            else
+                cb? height, inc
+
         return m
+
 
     # ルートの赤い線
     polyline = L.polyline([], {color: 'red'}).addTo(map)
@@ -393,20 +465,20 @@ createMap = (store, progressbar)->
             break if markers.length <= idx + 1
             p1 = map.project one.getLatLng()
             p3 = map.project markers[idx+1].getLatLng()
-            v21 = subtract p2, p1
-            v31 = subtract p3, p1
+            v21 = p2.subtract p1
+            v31 = p3.subtract p1
             nv21 = normalize v21
             nv31 = normalize v31
             if calcLength(v21) < calcLength(v31) and 0 < getDotOf(v21, v31) and Math.abs(getCrossOf(nv31, nv21)) < crossBorder
                 m = createMarkerAt e.latlng
                 markers.splice(idx + 1, 0, m)
-                updatePolyLine()
+                polyline.update()
                 break
         L.DomEvent.stopPropagation(e)
 
     # ルートの更新
-    updatePolyLine = ->
-        polyline.setLatLngs(m.getLatLng() for m in markers)
+    polyline.update = ->
+        @.setLatLngs(m.getLatLng() for m in markers)
 
     # タイルが現在の map上で見えているか。
     # tile = {x: x, y: y, zoom: zoom}
@@ -445,49 +517,40 @@ createMap = (store, progressbar)->
                 u = $t.attr "src"
                 $t.remove() if not visibleOnMap getTileInfoFromURL u
 
-    # 緯度軽度から標高を得る。
-    getHeightFromLatLng = (latlng, zoom, cb) ->
+    # 標高と傾斜情報を得る。
+    getHeightAndIncFromLatLng = (latlng, zoom, cb) ->
         coord = map.project latlng, zoom
         url = getDEMURLFromTileXY getTileXYFromCoord(coord), zoom
         p = getPointOnTileFromCoord coord
         loadImage zoom, url, (canvas)->
             h = getHeightFromRGB getRGBFromImg canvas, p
             if isNaN(h) and zoom is 15
-                getHeightFromLatLng latlng, 14, cb
+                getHeightAndIncFromLatLng latlng, 14, cb
             else
-                cb h
+                cb h, getIncFromImg canvas, p, zoom, latlng.lat
         , (e)-> # 失敗したら10mBメッシュで取り直し。
-            if zoom < 15 then cb Number.NaN else getHeightFromLatLng latlng, 14, cb
+            if zoom < 15 then cb Number.NaN, 0 else getHeightAndIncFromLatLng latlng, 14, cb
 
-
-    #
-    getAllHeights = (cb)->
-        heights = []
+    # マーカーに標高、傾斜を設定し、コールバックを呼び出す。
+    queryAllHeightAndInc = (cb)->
         progress = 0
         $bar = $ progressbar
         $bar.attr {max: markers.length, value: 0}
 
         requestNext = ()->
-            if progress < markers.length
-                th = getTrueHeight markers[progress]
-                if not isNaN th
-                    proc th
-                else
-                    getHeightFromLatLng markers[progress].getLatLng(), 15, proc
-            else
-                $bar.val 0
-                cb heights
-        proc = (h)->
-            heights.push h
+            markers[progress].queryHeightAndInc proc
+
+        proc = ()->
             ++progress;
             $bar.val progress
-            requestNext()
+            if progress < markers.length
+                requestNext()
+            else
+                $bar.val 0
+                cb markers
 
         requestNext()
 
-    # バルーン内の本当の標高を得る。
-    getTrueHeight = (m)->
-        parseFloat $(m.getPopup().getContent()).find("input.height").val()
 
     ##--------------------------------------------------------------------
     # マップ右下のリンクを出す。
@@ -500,7 +563,7 @@ createMap = (store, progressbar)->
     map.on 'click', (e)->
         m = createMarkerAt e.latlng
         markers.push m
-        updatePolyLine()
+        polyline.update()
 
     # 日本を表示する。
     map.resetDefaultLocation()
